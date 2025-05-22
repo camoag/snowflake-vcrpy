@@ -21,7 +21,7 @@ setup(
         "six>=1.5",
         "yarl",
         "pytest",
-        "urllib3<2",  # mparent(2025-05-22): 2+ breaks this libray
+        "urllib3<2",  # mparent(2025-05-22): 2+ breaks this library.
     ],
     extras_require={
         "development": ["snowflake-connector-python[pandas]"],
