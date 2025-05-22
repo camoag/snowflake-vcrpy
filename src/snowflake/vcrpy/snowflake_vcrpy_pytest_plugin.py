@@ -1,4 +1,6 @@
 import pytest
+import json
+import gzip
 import os
 import urllib.parse
 from ._vendored.vcrpy import VCR
@@ -46,6 +48,24 @@ def _process_request_recording(request):
 
     # The following line is to note how to decompress body in request
     # dict_body = json.loads(gzip.decompress(request.body).decode('UTF-8'))
+
+    # Strip sensitive PASSWORD from recorded request.
+    # There is a bug in core VCRPY that prevents stripping post body keys when the request body is compressed.
+    # SEE: https://github.com/kevin1024/vcrpy/issues/660
+    if request.path == '/session/v1/login-request':
+        request_json = json.loads(gzip.decompress(request.body).decode('UTF-8'))
+        if request_body_data := request_json.get('data'):
+            if 'PASSWORD' in request_body_data:
+                # Delete sensitive secret
+                del request_json['data']['PASSWORD']
+
+                # Re-compress body
+                request.body = gzip.compress(json.dumps(request_json).encode('UTF-8'))
+
+                # Update length header
+                del request.headers['Content-Length']
+                request.headers['Content-Length'] = len(request.body)
+
 
     return request
 
