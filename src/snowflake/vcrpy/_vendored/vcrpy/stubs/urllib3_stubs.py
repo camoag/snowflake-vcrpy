@@ -1,6 +1,11 @@
 """Stubs for urllib3"""
 
-from urllib3.connectionpool import HTTPConnection, VerifiedHTTPSConnection
+try:
+    from urllib3.connectionpool import HTTPConnection, VerifiedHTTPSConnection
+except ImportError:
+    # urllib3 2.x removed the VerifiedHTTPSConnection alias; HTTPSConnection is equivalent.
+    from urllib3.connectionpool import HTTPConnection
+    from urllib3.connectionpool import HTTPSConnection as VerifiedHTTPSConnection
 
 from ..stubs import VCRHTTPConnection, VCRHTTPSConnection
 
