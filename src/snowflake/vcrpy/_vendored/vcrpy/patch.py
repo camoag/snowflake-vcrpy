@@ -22,7 +22,7 @@ except ImportError:
     except ImportError:  # pragma: no cover
         pass
     else:
-        _Boto3VerifiedHTTPSConnection = cpool.VerifiedHTTPSConnection
+        _Boto3VerifiedHTTPSConnection = getattr(cpool, "VerifiedHTTPSConnection", cpool.HTTPSConnection)
         _cpoolBoto3HTTPConnection = cpool.HTTPConnection
         _cpoolBoto3HTTPSConnection = cpool.HTTPSConnection
 else:
@@ -37,7 +37,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 else:
-    _VerifiedHTTPSConnection = cpool.VerifiedHTTPSConnection
+    _VerifiedHTTPSConnection = getattr(cpool, "VerifiedHTTPSConnection", cpool.HTTPSConnection)
     _cpoolHTTPConnection = cpool.HTTPConnection
     _cpoolHTTPSConnection = cpool.HTTPSConnection
 
@@ -47,7 +47,9 @@ try:
 except ImportError:  # pragma: no cover
     pass
 else:
-    _SnowflakeVerifiedHTTPSConnection = snowflake_cpool.VerifiedHTTPSConnection
+    _SnowflakeVerifiedHTTPSConnection = getattr(
+        snowflake_cpool, "VerifiedHTTPSConnection", snowflake_cpool.HTTPSConnection
+    )
     _SnowflakeCpoolHTTPConnection = snowflake_cpool.HTTPConnection
     _SnowflakeCpoolHTTPSConnection = snowflake_cpool.HTTPSConnection
 
@@ -58,7 +60,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 else:
-    _VerifiedHTTPSConnection = cpool.VerifiedHTTPSConnection
+    _VerifiedHTTPSConnection = getattr(cpool, "VerifiedHTTPSConnection", cpool.HTTPSConnection)
     _cpoolHTTPConnection = cpool.HTTPConnection
     _cpoolHTTPSConnection = cpool.HTTPSConnection
 
@@ -278,9 +280,9 @@ class CassettePatcherBuilder:
             import snowflake.connector.vendored.urllib3.connectionpool as snowflake_cpool
         except ImportError:  # pragma: no cover
             return ()
-        from .stubs import urllib3_stubs
+        from .stubs import snowflake_urllib3_stubs
 
-        return self._urllib3_patchers(snowflake_cpool, urllib3_stubs)
+        return self._urllib3_patchers(snowflake_cpool, snowflake_urllib3_stubs)
 
     @_build_patchers_from_mock_triples_decorator
     def _httplib2(self):
@@ -456,7 +458,8 @@ def reset_patchers():
         pass
     else:
         # unpatch requests v1.x
-        yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _VerifiedHTTPSConnection)
+        if hasattr(cpool, "VerifiedHTTPSConnection"):
+            yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _VerifiedHTTPSConnection)
         yield mock.patch.object(cpool, "HTTPConnection", _cpoolHTTPConnection)
         # unpatch requests v2.x
         if hasattr(cpool.HTTPConnectionPool, "ConnectionCls"):
@@ -471,12 +474,27 @@ def reset_patchers():
     except ImportError:  # pragma: no cover
         pass
     else:
-        yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _VerifiedHTTPSConnection)
+        if hasattr(cpool, "VerifiedHTTPSConnection"):
+            yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _VerifiedHTTPSConnection)
         yield mock.patch.object(cpool, "HTTPConnection", _cpoolHTTPConnection)
         yield mock.patch.object(cpool, "HTTPSConnection", _cpoolHTTPSConnection)
         if hasattr(cpool.HTTPConnectionPool, "ConnectionCls"):
             yield mock.patch.object(cpool.HTTPConnectionPool, "ConnectionCls", _cpoolHTTPConnection)
             yield mock.patch.object(cpool.HTTPSConnectionPool, "ConnectionCls", _cpoolHTTPSConnection)
+
+    try:
+        # unpatch snowflake _vendored urllib3
+        import snowflake.connector.vendored.urllib3.connectionpool as cpool
+    except ImportError:  # pragma: no cover
+        pass
+    else:
+        if hasattr(cpool, "VerifiedHTTPSConnection"):
+            yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _SnowflakeVerifiedHTTPSConnection)
+        yield mock.patch.object(cpool, "HTTPConnection", _SnowflakeCpoolHTTPConnection)
+        yield mock.patch.object(cpool, "HTTPSConnection", _SnowflakeCpoolHTTPSConnection)
+        if hasattr(cpool.HTTPConnectionPool, "ConnectionCls"):
+            yield mock.patch.object(cpool.HTTPConnectionPool, "ConnectionCls", _SnowflakeCpoolHTTPConnection)
+            yield mock.patch.object(cpool.HTTPSConnectionPool, "ConnectionCls", _SnowflakeCpoolHTTPSConnection)
 
     try:
         # unpatch botocore with awsrequest
@@ -489,7 +507,8 @@ def reset_patchers():
             pass
         else:
             # unpatch requests v1.x
-            yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _Boto3VerifiedHTTPSConnection)
+            if hasattr(cpool, "VerifiedHTTPSConnection"):
+                yield mock.patch.object(cpool, "VerifiedHTTPSConnection", _Boto3VerifiedHTTPSConnection)
             yield mock.patch.object(cpool, "HTTPConnection", _cpoolBoto3HTTPConnection)
             # unpatch requests v2.x
             if hasattr(cpool.HTTPConnectionPool, "ConnectionCls"):
